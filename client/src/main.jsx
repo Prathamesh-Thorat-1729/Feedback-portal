@@ -10,7 +10,6 @@ createRoot(document.getElementById("root")).render(
     <BrowserRouter>
       <Routes>
         <Route index element={<Signinup />} />
-
         <Route path="/portal" element={<Portal />} />
       </Routes>
     </BrowserRouter>
