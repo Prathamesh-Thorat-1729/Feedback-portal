@@ -5,6 +5,7 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 const dotenv = require("dotenv");
 const { connectDB } = require("./config/db.js");
+const jwt = require("jsonwebtoken");
 
 const { UserRoutes } = require("./routes/User.js");
 
@@ -21,26 +22,61 @@ const io = new Server(server, {
   },
 });
 const PORT = process.env.PORT || 8080;
+const { JWT_SECRET } = process.env;
 
 connectDB();
 
-// io.use((socket, next) => {
-//   const token = socket.handshake.auth.token;
-//   if (!token) return next(new Error("No token provided"));
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error("No token provided"));
 
-//   try {
-//     const user = jwt.verify(token, JWT_SECRET);
-//     socket.user = user; // save user to socket
-//     next();
-//   } catch (err) {
-//     next(new Error("Invalid token"));
-//   }
-// });
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    socket.user = user; // save user to socket
+    next();
+  } catch (err) {
+    console.log("Token:", err);
+    next(new Error("Invalid token"));
+  }
+});
 
 io.on("connection", async (socket) => {
   console.log("A user connected:", socket.id);
 
-  socket.emit("load_messages", "hi");
+  // Load feedbacks from the database
+  const feedbacks = await Feedback.find({}).sort({ createdAt: -1 });
+
+  // Emit feedbacks to the client
+  socket.emit("load_feedbacks", feedbacks);
+
+  // Listen for feedback submission
+  socket.on("submit_feedback", async (data) => {
+    if (socket.user.role == "admin") return;
+
+    const feedback = new Feedback({
+      username: data.username,
+      feedbackText: data.feedback,
+    });
+
+    await feedback.save();
+
+    // Emit the new feedback to all clients
+    io.emit("new_feedback", feedback);
+  });
+
+  // add event to change status only by admin
+  socket.on("change_status", async (data) => {
+    if (socket.user.role == "user") return;
+
+    let feedbackId = data.id;
+    await Feedback.findByIdAndUpdate(
+      feedbackId,
+      { status: data.status },
+      { new: true }
+    );
+
+    io.emit("status_changed", data);
+  });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
@@ -61,6 +97,6 @@ app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "client/dist", "index.html"));
 });
 
-app.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

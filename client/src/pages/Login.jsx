@@ -50,6 +50,9 @@ export function Login({ switchToSignup }) {
           let data = await loginUser(email, password);
 
           if (data.status) navigate("/portal");
+          else {
+            alert(data.message);
+          }
         }}
       >
         <label htmlFor="email">
@@ -66,7 +69,6 @@ export function Login({ switchToSignup }) {
           />
           {showPassword ? <HiEye /> : <HiEyeOff />}
         </label>
-        {/* <Link to="/forgot-password">Forgot Password?</Link> */}
         <input type="submit" value={"Login"} />
       </form>
       <span style={{ textAlign: "center", width: "100%", display: "block" }}>
@@ -103,6 +105,9 @@ export function Signup({ switchToLogin }) {
           let data = await createUser(name, email, password);
 
           if (data.status) switchToLogin();
+          else {
+            alert(data.message);
+          }
         }}
       >
         <label htmlFor="name">
